@@ -4,20 +4,16 @@
       <div class="title-container">
         <img src="@/assets/common/logo.png" alt="">
       </div>
-      <el-form ref="loginForm" :model="loginForm" :rules="loginRules" class="login-form" auto-complete="on" label-position="left">
+      <el-form ref="loginForm" :model="loginForm" :rules="rules" class="login-form" auto-complete="on" label-position="left">
 
-        <el-form-item prop="username">
+        <el-form-item prop="loginName">
           <span class="svg-container">
             <i class="el-icon-mobile-phone" />
           </span>
           <el-input
-            ref="username"
-            v-model="loginForm.username"
-            placeholder="Username"
-            name="username"
-            type="text"
-            tabindex="1"
-            auto-complete="on"
+            ref="loginName"
+            v-model="loginForm.loginName"
+            placeholder="LoginName"
           />
         </el-form-item>
 
@@ -31,34 +27,24 @@
             v-model="loginForm.password"
             :type="passwordType"
             placeholder="Password"
-            name="password"
-            tabindex="2"
-            auto-complete="on"
-            @keyup.enter.native="handleLogin"
           />
           <span class="show-pwd" @click="showPwd">
             <svg-icon :icon-class="passwordType === 'password' ? 'eye' : 'eye-open'" />
           </span>
         </el-form-item>
-        <el-form-item prop="password">
+        <el-form-item prop="code">
           <div class="el-col el-col-17">
             <span class="svg-container">
               <i class="el-icon-ice-cream" />
             </span>
             <el-input
-              :key="codeType"
               ref="code"
               v-model="loginForm.code"
-              :type="codeType"
               placeholder="code"
-              name="code"
-              tabindex="2"
-              auto-complete="on"
-              @keyup.enter.native="handleLogin"
             />
           </div>
           <div class="el-col el-col-7 code-image">
-            <img src="../../assets/common/logo.png" alt="">
+            <img :src="codeImage" alt="" @click="onCodeImage">
           </div>
         </el-form-item>
 
@@ -67,8 +53,8 @@
           type="primary"
           class="login-btn"
           style="width:100%;margin-bottom:30px;"
-          @click.native.prevent="handleLogin"
-        >Login</el-button>
+          @click="onLogin"
+        >登录</el-button>
 
       </el-form>
     </div>
@@ -77,75 +63,85 @@
 </template>
 
 <script>
-import { validUsername } from '@/utils/validate'
-
+import { getImageCode } from '@/api/user'
 export default {
   name: 'Login',
   data() {
-    const validateUsername = (rule, value, callback) => {
-      if (!validUsername(value)) {
-        callback(new Error('Please enter the correct user name'))
-      } else {
-        callback()
-      }
-    }
-    const validatePassword = (rule, value, callback) => {
-      if (value.length < 6) {
-        callback(new Error('The password can not be less than 6 digits'))
-      } else {
-        callback()
-      }
-    }
     return {
       loginForm: {
-        username: 'admin',
+        loginName: 'admin',
         password: 'admin',
         code: 'ax2p'
       },
-      loginRules: {
-        username: [{ required: true, trigger: 'blur', validator: validateUsername }],
-        password: [{ required: true, trigger: 'blur', validator: validatePassword }]
-      },
       loading: false,
       passwordType: 'password',
-      redirect: undefined
+      rules: {
+        // 此处代码省略
+        loginName: [
+          { required: true, message: '请输入账号', trigger: 'blur' }
+        ],
+        password: [
+          { required: true, message: '请输入密码', trigger: 'blur' }
+        ],
+        code: [
+          { required: true, message: '请输入验证码', trigger: 'blur' }
+        ]
+      },
+      codeImage: ''
     }
   },
   watch: {
-    $route: {
-      handler: function(route) {
-        this.redirect = route.query && route.query.redirect
-      },
-      immediate: true
-    }
+  },
+  created() {
+    this.onCodeImage()
   },
   methods: {
     showPwd() {
-      if (this.passwordType === 'password') {
-        this.passwordType = ''
-      } else {
-        this.passwordType = 'password'
-      }
+      // 密码可视input是text类型（可不写），看不见为password类型
+      this.passwordType === 'password' ? this.passwordType = '' : this.passwordType = 'password'
+      // 点击时获取焦点，加入异步队列微任务
       this.$nextTick(() => {
         this.$refs.password.focus()
       })
     },
-    handleLogin() {
-      this.$refs.loginForm.validate(valid => {
-        if (valid) {
-          this.loading = true
-          this.$store.dispatch('user/login', this.loginForm).then(() => {
-            this.$router.push({ path: this.redirect || '/' })
-            this.loading = false
-          }).catch(() => {
-            this.loading = false
-          })
-        } else {
-          console.log('error submit!!')
-          return false
-        }
-      })
+
+    async onLogin() {
+      try {
+        // 校验表单
+        await this.$refs.loginForm.validate()
+        this.loading = true
+        await this.$store.dispatch('user/loginAction',
+          {
+            loginName: this.loginForm.loginName,
+            password: this.loginForm.password,
+            mobile: '',
+            code: this.loginForm.code,
+            clientToken: this.codeImage.substring(this.codeImage.length - 32),
+            loginType: 0,
+            account: ''
+          }
+        )
+      } finally {
+        this.loading = false
+      }
+    },
+    randomString(e) {
+      e = e || 32
+      const t = 'ABCDEFGHJKMNPQRSTWXYZabcdefhijkmnprstwxyz0123456789'
+      const a = t.length
+      let n = ''
+      for (let i = 0; i < e; i++) n += t.charAt(Math.floor(Math.random() * a))
+      return n
+    },
+    async onCodeImage() {
+      try {
+        const data = await getImageCode(this.randomString(32))
+        this.codeImage = data.request.responseURL
+      } catch (error) {
+        console.log(error)
+      }
     }
+
   }
 }
 </script>
@@ -156,7 +152,7 @@ export default {
 
 $bg:#fff;
 $light_gray:#999;
-$cursor: #fff;
+$cursor: grey;
 
 @supports (-webkit-mask: none) and (not (cater-color: $cursor)) {
   .login-container .el-input input {
@@ -195,7 +191,7 @@ $cursor: #fff;
     color: #999;
   }
   .el-form-item__error {
-    color: #6878f0
+    color: red;
   }
   .code-image{
     width: 130px;
