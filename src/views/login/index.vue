@@ -121,10 +121,12 @@ export default {
             account: ''
           }
         )
+        this.$router.push('/')
       } finally {
         this.loading = false
       }
     },
+    // 随机32位
     randomString(e) {
       e = e || 32
       const t = 'ABCDEFGHJKMNPQRSTWXYZabcdefhijkmnprstwxyz0123456789'
@@ -133,6 +135,7 @@ export default {
       for (let i = 0; i < e; i++) n += t.charAt(Math.floor(Math.random() * a))
       return n
     },
+    // 点击验证码获取验证码图片地址
     async onCodeImage() {
       try {
         const data = await getImageCode(this.randomString(32))
